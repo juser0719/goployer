@@ -441,27 +441,43 @@ func (e EC2Client) MakeBlockDevices(blocks []schemas.BlockDevice) []*autoscaling
 	var ret []*autoscaling.BlockDeviceMapping
 
 	for _, block := range blocks {
-		bType := block.VolumeType
-		if bType == "" {
-			Logger.Info("Volume type not defined for device mapping: defaulting to \"gp2\"")
-			bType = "gp2"
+		enabledEBSEncrypted := block.Encrypted
+
+		var ebsDevice *autoscaling.Ebs
+
+		if enabledEBSEncrypted {
+			ebsDevice = &autoscaling.Ebs{
+				VolumeSize:          aws.Int64(block.VolumeSize),
+				VolumeType:          aws.String(block.VolumeType),
+				Encrypted:           aws.Bool(enabledEBSEncrypted),
+				DeleteOnTermination: aws.Bool(block.DeleteOnTermination),
+			}
+		} else {
+			ebsDevice = &autoscaling.Ebs{
+				VolumeSize:          aws.Int64(block.VolumeSize),
+				VolumeType:          aws.String(block.VolumeType),
+				DeleteOnTermination: aws.Bool(block.DeleteOnTermination),
+			}
 		}
 
-		bSize := block.VolumeSize
-		if bSize == 0 {
-			Logger.Info("Volume size not defined for device mapping: defaulting to 16GB")
-			bSize = 16
+		if len(block.SnapshotID) > 0 {
+			if !isValidSnapshotID(block.SnapshotID) {
+				Logger.Error(fmt.Sprintf("Invalid snapshot ID format: %s", block.SnapshotID))
+				continue
+			}
+			ebsDevice.SnapshotId = aws.String(block.SnapshotID)
 		}
 
-		ret = append(ret, &autoscaling.BlockDeviceMapping{
+		tmp := &autoscaling.BlockDeviceMapping{
 			DeviceName: aws.String(block.DeviceName),
-			Ebs: &autoscaling.Ebs{
-				VolumeSize: aws.Int64(bSize),
-				VolumeType: aws.String(bType),
-			},
-			NoDevice:    nil,
-			VirtualName: nil,
-		})
+			Ebs:        ebsDevice,
+		}
+
+		if block.VolumeType == "io1" || block.VolumeType == "io2" {
+			tmp.Ebs.Iops = aws.Int64(block.Iops)
+		}
+
+		ret = append(ret, tmp)
 	}
 
 	return ret
@@ -472,53 +488,47 @@ func (e EC2Client) MakeLaunchTemplateBlockDeviceMappings(blocks []schemas.BlockD
 	var ret []*ec2.LaunchTemplateBlockDeviceMappingRequest
 
 	for _, block := range blocks {
-		bType := block.VolumeType
-		if bType == "" {
-			Logger.Info("Default value is applied because volume type not defined : gp2")
-			bType = "gp2"
-		}
-
-		bSize := block.VolumeSize
-		if bSize == 0 {
-			Logger.Info("Volume size not defined for device mapping: defaulting to 16GB")
-			bSize = 16
-		}
-
 		enabledEBSEncrypted := block.Encrypted
 
-		LaunchTemplateEbsBlockDevice := &ec2.LaunchTemplateEbsBlockDeviceRequest{}
+		var LaunchTemplateEbsBlockDevice *ec2.LaunchTemplateEbsBlockDeviceRequest
 
 		if enabledEBSEncrypted {
-			keyId, err := e.getKmsKeyIdByAlias(block.KmsAlias)
-
-			if err != nil {
-				Logger.Fatalf("Error: %v", err)
-			}
-
-			fmt.Printf("KMS Key ID for alias %s: %s\n", block.KmsAlias, keyId)
-			LaunchTemplateEbsBlockDevice = &ec2.LaunchTemplateEbsBlockDeviceRequest{
-				VolumeSize: aws.Int64(bSize),
-				VolumeType: aws.String(bType),
-				Encrypted:  aws.Bool(enabledEBSEncrypted),
-				KmsKeyId:   aws.String(keyId),
+			if len(block.KmsAlias) > 0 {
+				keyId, err := e.getKmsKeyIdByAlias(block.KmsAlias)
+				if err != nil {
+					Logger.Fatal(fmt.Sprintf("Error: %s", err.Error()))
+				}
+				LaunchTemplateEbsBlockDevice = &ec2.LaunchTemplateEbsBlockDeviceRequest{
+					VolumeSize:          aws.Int64(block.VolumeSize),
+					VolumeType:          aws.String(block.VolumeType),
+					Encrypted:           aws.Bool(enabledEBSEncrypted),
+					KmsKeyId:            aws.String(keyId),
+					DeleteOnTermination: aws.Bool(block.DeleteOnTermination),
+				}
 			}
 		} else {
 			LaunchTemplateEbsBlockDevice = &ec2.LaunchTemplateEbsBlockDeviceRequest{
-				VolumeSize: aws.Int64(bSize),
-				VolumeType: aws.String(bType),
+				VolumeSize:          aws.Int64(block.VolumeSize),
+				VolumeType:          aws.String(block.VolumeType),
+				DeleteOnTermination: aws.Bool(block.DeleteOnTermination),
 			}
 		}
 
-		tmp := ec2.LaunchTemplateBlockDeviceMappingRequest{
-			DeviceName:  aws.String(block.DeviceName),
-			Ebs:         LaunchTemplateEbsBlockDevice,
-			NoDevice:    nil,
-			VirtualName: nil,
+		if len(block.SnapshotID) > 0 {
+			if !isValidSnapshotID(block.SnapshotID) {
+				Logger.Error(fmt.Sprintf("Invalid snapshot ID format: %s", block.SnapshotID))
+				continue
+			}
+			LaunchTemplateEbsBlockDevice.SnapshotId = aws.String(block.SnapshotID)
 		}
 
-		if tool.IsStringInArray(bType, constants.IopsRequiredBlockType) {
+		tmp := ec2.LaunchTemplateBlockDeviceMappingRequest{
+			DeviceName: aws.String(block.DeviceName),
+			Ebs:        LaunchTemplateEbsBlockDevice,
+		}
+
+		if block.VolumeType == "io1" || block.VolumeType == "io2" {
 			tmp.Ebs.Iops = aws.Int64(block.Iops)
-			Logger.Debugf("iops applied: %d", block.Iops)
 		}
 
 		ret = append(ret, &tmp)
@@ -1328,4 +1338,12 @@ func (e EC2Client) getKmsKeyIdByAlias(alias string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("alias %s not found", alias)
+}
+
+func isValidSnapshotID(snapshotID string) bool {
+	// AWS 스냅샷 ID 형식: snap-xxxxxxxx 또는 snap-xxxxxxxxxxxxxxxxx
+	// x는 16진수(0-9, a-f)
+	pattern := `^snap-[0-9a-f]{8}([0-9a-f]{9})?$`
+	matched, err := regexp.MatchString(pattern, snapshotID)
+	return err == nil && matched
 }
