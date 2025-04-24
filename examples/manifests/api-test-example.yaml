@@ -64,9 +64,16 @@ stacks:
       - device_name: /dev/xvda
         volume_size: 10
         volume_type: "gp2"
+        delete_on_termination: false  # root volume will be preserved
       - device_name: /dev/xvdb
         volume_type: "st1"
         volume_size: 500
+        delete_on_termination: true  # data volume will be deleted
+      - device_name: /dev/xvdc
+        snapshot_id: snap-1234567890abcdef0  # volume created from snapshot
+        volume_size: 100
+        volume_type: "gp3"
+        delete_on_termination: false  # preserve snapshot-based volume
     capacity:
       min: 1
       max: 2

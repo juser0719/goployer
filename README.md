@@ -66,4 +66,60 @@ You can see the detailed information in [manifest format](https://goployer.dev/d
 cd examples/manifests
 ```
 
+## EBS Volume Configuration
+
+Goployer supports advanced EBS volume management with the following features. You can find a complete example in [api-test-example.yaml](examples/manifests/api-test-example.yaml).
+
+### Basic Configuration
+```yaml
+block_devices:
+  - device_name: /dev/xvda
+    volume_size: 30
+    volume_type: gp3
+```
+
+### Delete on Termination
+Control whether EBS volumes should be deleted when the instance terminates:
+```yaml
+block_devices:
+  - device_name: /dev/xvda
+    volume_size: 30
+    volume_type: gp3
+    delete_on_termination: false  # optional, defaults to false
+```
+
+### Snapshot Support
+Create volumes from existing snapshots:
+```yaml
+block_devices:
+  - device_name: /dev/sdf
+    snapshot_id: snap-1234567890abcdef0  # optional, for volume creation from snapshot
+    volume_size: 100
+    volume_type: gp3
+    delete_on_termination: true
+```
+
+### Encrypted Volumes
+Create encrypted volumes with KMS:
+```yaml
+block_devices:
+  - device_name: /dev/sdg
+    volume_size: 50
+    volume_type: gp3
+    encrypted: true
+    kms_alias: alias/my-kms-key
+    delete_on_termination: false
+```
+
+### Configuration Options
+- `device_name`: The device name to expose to the instance
+- `volume_size`: Size of the volume in GiB
+- `volume_type`: Type of EBS volume (gp2, gp3, io1, io2, st1, sc1)
+- `delete_on_termination`: Whether to delete the volume on instance termination (default: false)
+- `snapshot_id`: ID of the snapshot to create the volume from (optional)
+- `encrypted`: Whether to encrypt the volume (default: false)
+- `kms_alias`: KMS key alias for encryption (required if encrypted is true)
+
+For a complete example showing how to use these features together, see [api-test-example.yaml](examples/manifests/api-test-example.yaml).
+
 

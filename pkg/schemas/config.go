@@ -236,6 +236,7 @@ type BlockDevice struct {
 	// Name of block device
 	DeviceName string `yaml:"device_name"`
 
+	SnapshotID string `yaml:"snapshot_id"`
 	// Size of volume
 	VolumeSize int64 `yaml:"volume_size"`
 
@@ -250,6 +251,9 @@ type BlockDevice struct {
 
 	// KMS key
 	KmsAlias string `yaml:"kmsAlias"`
+
+	// Whether to delete the volume on instance termination
+	DeleteOnTermination bool `yaml:"delete_on_termination"`
 }
 
 // Lifecycle Callback configuration
