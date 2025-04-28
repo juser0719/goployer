@@ -19,7 +19,7 @@ If other autoscaling groups of sample application already existed, for example `
 2. Create a new launch template. 
 3. Create autoscaling group with launch template from the previous step. A newly created autoscaling group will be automatically attached to the target groups you specified in manifest.
 4. Check all instances of all stacks are healty. Until all of them pass healthchecking, it won't go to the next step.
-5. (optional) If you add `autoscaling` in manifest, goployer creates autoscaling policies and put these to the autoscaling group. If you use `alarms` with autoscaling, then goployer will also create a cloudwatch alarm for autoscaling policy.
+5. (optional) If you add `autoscaling` in manifest, goployer creates autoscaling policies and put these to the autoscaling group. If you use `alarms` with autoscaling, then goployer should also create a cloudwatch alarm for autoscaling policy.
 6. After all stacks are deployed, then goployer tries to delete previous versions of the same application.
    Launch templates of previous autoscaling groups are also going to be deleted.
    
@@ -56,15 +56,9 @@ If other autoscaling groups of sample application already existed, for example `
       spot_max_price: 0.3
 ```
  
-You can see the detailed information in [manifest format](https://goployer.dev/docs/references/manifest/) page.
+You should see the detailed information in [manifest format](https://goployer.dev/docs/references/manifest/) page.
 
 <br>
-
-## Examples
-* You can find few examples of manifest file so that you can test it with this.
-```bash
-cd examples/manifests
-```
 
 ## EBS Volume Configuration
 
@@ -123,3 +117,73 @@ block_devices:
 For a complete example showing how to use these features together, see [api-test-example.yaml](examples/manifests/api-test-example.yaml).
 
 
+<br>
+
+## # Network Interface Configuration
+* You can configure multiple network interfaces (ENIs) for your instances.
+* Both primary and secondary ENIs are optional configurations.
+* If not specified, default network interface settings will be used.
+
+### Security Group Configuration
+Security groups can be configured in three ways:
+
+1. Using Launch Template Security Groups (Default):
+```yaml
+security_groups:
+  - sg-12345678
+```
+
+2. Using Primary ENI Security Groups (Optional):
+```yaml
+primary_eni:
+  device_index: 0
+  subnet_id: subnet-12345678
+  security_groups:
+    - sg-12345678
+```
+
+3. Using Multiple ENIs with Security Groups (Optional):
+```yaml
+primary_eni:
+  device_index: 0
+  subnet_id: subnet-12345678
+  security_groups:
+    - sg-12345678
+
+secondary_enis:
+  - device_index: 1
+    subnet_id: subnet-87654321
+    security_groups:
+      - sg-87654321
+    private_ip_address: 10.0.1.100
+  - device_index: 2
+    subnet_id: subnet-87654321
+    security_groups:
+      - sg-87654321
+    private_ip_address: 10.0.1.101
+```
+
+Note: 
+- You cannot use both ENI security groups and launch template security groups at the same time. You must choose either:
+  * Using launch template security groups (without ENI)
+  * Using ENI security groups (with ENI)
+- Security group IDs must start with 'sg-' prefix
+- ENI configuration is optional and should be used only when you need specific network interface configurations
+- Each ENI (primary and secondary) must have at least one security group specified
+
+### Network Interface Parameters
+* `device_index`: The index of the network interface (0 for primary, 1+ for secondary)
+* `subnet_id`: The ID of the subnet to attach the ENI to
+* `security_groups`: List of security group IDs to associate with the ENI
+* `private_ip_address`: (Optional) Specific private IP address to assign to the ENI
+* `delete_on_termination`: 
+  - If `true`: The ENI will be automatically deleted when the instance is terminated
+  - If `false`: The ENI will be preserved when the instance is terminated, allowing you to reuse it with another instance
+  - Primary ENI typically uses `true` to clean up resources
+  - Secondary ENIs often use `false` to preserve network configurations and IP addresses
+
+## Examples
+* You can find few examples of manifest file so that you can test it with this.
+```bash
+cd examples/manifests
+```

@@ -323,20 +323,65 @@ func (e EC2Client) CreateNewLaunchConfiguration(name, ami, instanceType, keyName
 	return true
 }
 
-// CreateNewLaunchTemplate Create New Launch Template
-func (e EC2Client) CreateNewLaunchTemplate(name, ami, instanceType, keyName, iamProfileName, userdata string, ebsOptimized, mixedInstancePolicyEnabled bool, securityGroups []*string, blockDevices []*ec2.LaunchTemplateBlockDeviceMappingRequest, instanceMarketOptions *schemas.InstanceMarketOptions, detailedMonitoringEnabled bool) error {
-	input := &ec2.CreateLaunchTemplateInput{
-		LaunchTemplateData: &ec2.RequestLaunchTemplateData{
-			ImageId:      aws.String(ami),
-			InstanceType: aws.String(instanceType),
-			IamInstanceProfile: &ec2.LaunchTemplateIamInstanceProfileSpecificationRequest{
-				Name: aws.String(iamProfileName),
-			},
-			UserData:         aws.String(userdata),
-			SecurityGroupIds: securityGroups,
-			EbsOptimized:     aws.Bool(ebsOptimized),
-			Monitoring:       &ec2.LaunchTemplatesMonitoringRequest{Enabled: aws.Bool(detailedMonitoringEnabled)},
+// ValidateSecurityGroupsConfig validates the security group configuration
+func (e EC2Client) ValidateSecurityGroupsConfig(securityGroups []*string, primaryENI *schemas.ENIConfig, secondaryENIs []*schemas.ENIConfig) error {
+	// Check if both security groups and ENI are specified
+	if len(securityGroups) > 0 && (primaryENI != nil || len(secondaryENIs) > 0) {
+		return fmt.Errorf("cannot use both launch template security groups and ENI security groups at the same time")
+	}
+
+	// If ENI is specified, ensure it has security groups
+	if primaryENI != nil && len(primaryENI.SecurityGroups) == 0 {
+		return fmt.Errorf("security groups must be specified for primary ENI")
+	}
+	for _, eni := range secondaryENIs {
+		if len(eni.SecurityGroups) == 0 {
+			return fmt.Errorf("security groups must be specified for secondary ENI")
+		}
+	}
+
+	// If ENI is not specified, ensure launch template has security groups
+	if primaryENI == nil && len(secondaryENIs) == 0 && len(securityGroups) == 0 {
+		return fmt.Errorf("security groups must be specified for launch template when ENI is not used")
+	}
+
+	// Validate security group IDs
+	if len(securityGroups) > 0 {
+		for _, sg := range securityGroups {
+			if sg == nil || !strings.HasPrefix(*sg, "sg-") {
+				return fmt.Errorf("invalid security group ID format: %v", sg)
+			}
+		}
+	}
+
+	return nil
+}
+
+// CreateNewLaunchTemplate creates a new launch template
+func (e EC2Client) CreateNewLaunchTemplate(name, ami, instanceType, keyName, iamProfileName, userdata string, ebsOptimized, mixedInstancePolicyEnabled bool, securityGroups []*string, blockDevices []*ec2.LaunchTemplateBlockDeviceMappingRequest, instanceMarketOptions *schemas.InstanceMarketOptions, detailedMonitoringEnabled bool, primaryENI *schemas.ENIConfig, secondaryENIs []*schemas.ENIConfig) error {
+	// Validate security group configuration
+	if err := e.ValidateSecurityGroupsConfig(securityGroups, primaryENI, secondaryENIs); err != nil {
+		return err
+	}
+
+	launchTemplateData := &ec2.RequestLaunchTemplateData{
+		ImageId:      aws.String(ami),
+		InstanceType: aws.String(instanceType),
+		IamInstanceProfile: &ec2.LaunchTemplateIamInstanceProfileSpecificationRequest{
+			Name: aws.String(iamProfileName),
 		},
+		UserData:     aws.String(userdata),
+		EbsOptimized: aws.Bool(ebsOptimized),
+		Monitoring:   &ec2.LaunchTemplatesMonitoringRequest{Enabled: aws.Bool(detailedMonitoringEnabled)},
+	}
+
+	// Only set SecurityGroupIds if it's not empty
+	if len(securityGroups) > 0 {
+		launchTemplateData.SecurityGroupIds = securityGroups
+	}
+
+	input := &ec2.CreateLaunchTemplateInput{
+		LaunchTemplateData: launchTemplateData,
 		LaunchTemplateName: aws.String(name),
 	}
 
@@ -346,6 +391,58 @@ func (e EC2Client) CreateNewLaunchTemplate(name, ami, instanceType, keyName, iam
 
 	if len(keyName) > 0 {
 		input.LaunchTemplateData.SetKeyName(keyName)
+	}
+
+	// Configure network interfaces
+	var networkInterfaces []*ec2.LaunchTemplateInstanceNetworkInterfaceSpecificationRequest
+
+	// Configure primary ENI if specified
+	if primaryENI != nil {
+		primaryInterface := &ec2.LaunchTemplateInstanceNetworkInterfaceSpecificationRequest{
+			DeviceIndex:         aws.Int64(int64(primaryENI.DeviceIndex)),
+			SubnetId:            aws.String(primaryENI.SubnetID),
+			DeleteOnTermination: aws.Bool(primaryENI.DeleteOnTermination),
+		}
+
+		if len(primaryENI.SecurityGroups) > 0 {
+			primaryInterface.Groups = aws.StringSlice(primaryENI.SecurityGroups)
+		}
+
+		if primaryENI.PrivateIPAddress != "" {
+			primaryInterface.PrivateIpAddress = aws.String(primaryENI.PrivateIPAddress)
+		}
+
+		networkInterfaces = append(networkInterfaces, primaryInterface)
+	}
+
+	// Configure secondary ENIs if specified
+	for _, secondaryENI := range secondaryENIs {
+		secondaryInterface := &ec2.LaunchTemplateInstanceNetworkInterfaceSpecificationRequest{
+			DeviceIndex:         aws.Int64(int64(secondaryENI.DeviceIndex)),
+			SubnetId:            aws.String(secondaryENI.SubnetID),
+			DeleteOnTermination: aws.Bool(secondaryENI.DeleteOnTermination),
+		}
+
+		if len(secondaryENI.SecurityGroups) > 0 {
+			secondaryInterface.Groups = aws.StringSlice(secondaryENI.SecurityGroups)
+		}
+
+		if secondaryENI.PrivateIPAddress != "" {
+			secondaryInterface.PrivateIpAddress = aws.String(secondaryENI.PrivateIPAddress)
+		}
+
+		networkInterfaces = append(networkInterfaces, secondaryInterface)
+	}
+
+	if len(networkInterfaces) > 0 {
+		// Validate that if network interfaces are specified, security groups should not be set in launch template
+		if len(securityGroups) > 0 {
+			return fmt.Errorf("cannot specify both security groups and network interfaces (ENIs) in launch template")
+		}
+		input.LaunchTemplateData.NetworkInterfaces = networkInterfaces
+	} else if len(securityGroups) == 0 {
+		// Validate that if no network interfaces are specified, security groups must be set
+		return fmt.Errorf("either security groups or network interfaces (ENIs) must be specified in launch template")
 	}
 
 	if instanceMarketOptions != nil && !mixedInstancePolicyEnabled {

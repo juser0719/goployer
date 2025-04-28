@@ -725,3 +725,210 @@ func TestValidCronExpression(t *testing.T) {
 		}
 	}
 }
+
+func TestBuilder_CheckValidation(t *testing.T) {
+	b := Builder{
+		Config: schemas.Config{
+			Manifest:        "test.yaml",
+			PollingInterval: 10 * time.Second,
+			Timeout:         30 * time.Minute,
+			DisableMetrics:  true,
+			Stack:           "test-stack",
+		},
+		MetricConfig: schemas.MetricConfig{
+			Enabled: true,
+			Region:  "ap-northeast-2",
+			Storage: schemas.Storage{
+				Name: "goployer-metrics",
+				Type: "dynamodb",
+			},
+		},
+		Stacks: []schemas.Stack{
+			{
+				Stack:   "test-stack",
+				Account: "test-account",
+				Env:     "test-env",
+				Regions: []schemas.RegionConfig{
+					{
+						Region:         "ap-northeast-2",
+						AmiID:          "ami-0c55b159cbfafe1f0",
+						InstanceType:   "t3.medium",
+						VPC:            "vpc-12345678",
+						SecurityGroups: []string{"sg-12345678"},
+						SubnetIDs:      []string{"subnet-12345678"},
+						// Case 1: No ENI configuration
+					},
+					{
+						Region:         "ap-northeast-2",
+						AmiID:          "ami-0c55b159cbfafe1f0",
+						InstanceType:   "t3.medium",
+						VPC:            "vpc-12345678",
+						SecurityGroups: []string{"sg-12345678"},
+						SubnetIDs:      []string{"subnet-12345678"},
+						// Case 2: Only primary ENI
+						PrimaryENI: &schemas.ENIConfig{
+							DeviceIndex:         0,
+							SubnetID:            "subnet-12345678",
+							SecurityGroups:      []string{"sg-12345678"},
+							DeleteOnTermination: true,
+						},
+					},
+					{
+						Region:         "ap-northeast-2",
+						AmiID:          "ami-0c55b159cbfafe1f0",
+						InstanceType:   "t3.medium",
+						VPC:            "vpc-12345678",
+						SecurityGroups: []string{"sg-12345678"},
+						SubnetIDs:      []string{"subnet-12345678"},
+						// Case 3: Both primary and secondary ENI
+						PrimaryENI: &schemas.ENIConfig{
+							DeviceIndex:         0,
+							SubnetID:            "subnet-12345678",
+							SecurityGroups:      []string{"sg-12345678"},
+							DeleteOnTermination: true,
+						},
+						SecondaryENIs: []*schemas.ENIConfig{
+							{
+								DeviceIndex:         1,
+								SubnetID:            "subnet-87654321",
+								SecurityGroups:      []string{"sg-87654321"},
+								PrivateIPAddress:    "10.0.1.100",
+								DeleteOnTermination: false,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if err := b.CheckValidation(); err != nil {
+		t.Errorf("validation failed: %v", err)
+	}
+}
+
+func TestBuilder_CheckValidation_ENIErrors(t *testing.T) {
+	testCases := []struct {
+		name          string
+		regionConfig  schemas.RegionConfig
+		expectedError string
+	}{
+		{
+			name: "Invalid primary ENI device index",
+			regionConfig: schemas.RegionConfig{
+				PrimaryENI: &schemas.ENIConfig{
+					DeviceIndex:         1, // Should be 0
+					SubnetID:            "subnet-12345678",
+					SecurityGroups:      []string{"sg-12345678"},
+					DeleteOnTermination: true,
+				},
+			},
+			expectedError: "primary ENI device index must be 0",
+		},
+		{
+			name: "Invalid primary ENI subnet ID",
+			regionConfig: schemas.RegionConfig{
+				PrimaryENI: &schemas.ENIConfig{
+					DeviceIndex:         0,
+					SubnetID:            "invalid-subnet", // Should start with subnet-
+					SecurityGroups:      []string{"sg-12345678"},
+					DeleteOnTermination: true,
+				},
+			},
+			expectedError: "invalid subnet ID format for primary ENI",
+		},
+		{
+			name: "Invalid primary ENI security group",
+			regionConfig: schemas.RegionConfig{
+				PrimaryENI: &schemas.ENIConfig{
+					DeviceIndex:         0,
+					SubnetID:            "subnet-12345678",
+					SecurityGroups:      []string{"invalid-sg"}, // Should start with sg-
+					DeleteOnTermination: true,
+				},
+			},
+			expectedError: "invalid security group ID format for primary ENI",
+		},
+		{
+			name: "Invalid secondary ENI device index",
+			regionConfig: schemas.RegionConfig{
+				SecondaryENIs: []*schemas.ENIConfig{
+					{
+						DeviceIndex:         0, // Should be > 0
+						SubnetID:            "subnet-87654321",
+						SecurityGroups:      []string{"sg-87654321"},
+						PrivateIPAddress:    "10.0.1.100",
+						DeleteOnTermination: false,
+					},
+				},
+			},
+			expectedError: "secondary ENI device index must be greater than 0",
+		},
+		{
+			name: "Duplicate secondary ENI device index",
+			regionConfig: schemas.RegionConfig{
+				SecondaryENIs: []*schemas.ENIConfig{
+					{
+						DeviceIndex:         1,
+						SubnetID:            "subnet-87654321",
+						SecurityGroups:      []string{"sg-87654321"},
+						PrivateIPAddress:    "10.0.1.100",
+						DeleteOnTermination: false,
+					},
+					{
+						DeviceIndex:         1, // Duplicate device index
+						SubnetID:            "subnet-87654321",
+						SecurityGroups:      []string{"sg-87654321"},
+						PrivateIPAddress:    "10.0.1.101",
+						DeleteOnTermination: false,
+					},
+				},
+			},
+			expectedError: "duplicate device index found",
+		},
+		{
+			name: "Invalid secondary ENI private IP",
+			regionConfig: schemas.RegionConfig{
+				SecondaryENIs: []*schemas.ENIConfig{
+					{
+						DeviceIndex:         1,
+						SubnetID:            "subnet-87654321",
+						SecurityGroups:      []string{"sg-87654321"},
+						PrivateIPAddress:    "invalid-ip", // Invalid IP format
+						DeleteOnTermination: false,
+					},
+				},
+			},
+			expectedError: "invalid private IP address format for secondary ENI",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			b := Builder{
+				Config: schemas.Config{
+					Manifest:        "test.yaml",
+					PollingInterval: 10 * time.Second,
+					Timeout:         30 * time.Minute,
+					DisableMetrics:  true,
+					Stack:           "test-stack",
+				},
+				Stacks: []schemas.Stack{
+					{
+						Stack:   "test-stack",
+						Account: "test-account",
+						Env:     "test-env",
+						Regions: []schemas.RegionConfig{tc.regionConfig},
+					},
+				},
+			}
+
+			err := b.CheckValidation()
+			if err == nil {
+				t.Errorf("expected error but got nil")
+			} else if !strings.Contains(err.Error(), tc.expectedError) {
+				t.Errorf("expected error containing %q, got %q", tc.expectedError, err.Error())
+			}
+		})
+	}
+}

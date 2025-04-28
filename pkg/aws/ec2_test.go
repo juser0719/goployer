@@ -19,6 +19,8 @@ package aws
 import (
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/stretchr/testify/assert"
 
@@ -154,7 +156,10 @@ func TestMakeLaunchTemplateBlockDeviceMappings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := EC2Client{}
+			client := &EC2Client{
+				Client:   &ec2.EC2{},
+				AsClient: &autoscaling.AutoScaling{},
+			}
 			result := client.MakeLaunchTemplateBlockDeviceMappings(tt.blocks)
 
 			assert.Equal(t, len(tt.expected), len(result))
@@ -170,6 +175,100 @@ func TestMakeLaunchTemplateBlockDeviceMappings(t *testing.T) {
 				if expected.Ebs.Iops != nil {
 					assert.Equal(t, *expected.Ebs.Iops, *result[i].Ebs.Iops)
 				}
+			}
+		})
+	}
+}
+
+func TestValidateSecurityGroupsConfig(t *testing.T) {
+	tests := []struct {
+		name           string
+		securityGroups []*string
+		primaryENI     *schemas.ENIConfig
+		secondaryENIs  []*schemas.ENIConfig
+		expectedError  bool
+		errorMessage   string
+	}{
+		{
+			name:           "Valid security groups without ENI",
+			securityGroups: []*string{aws.String("sg-12345678")},
+			primaryENI:     nil,
+			secondaryENIs:  nil,
+			expectedError:  false,
+		},
+		{
+			name:           "Invalid security group format",
+			securityGroups: []*string{aws.String("invalid-sg")},
+			primaryENI:     nil,
+			secondaryENIs:  nil,
+			expectedError:  true,
+			errorMessage:   "invalid security group ID format",
+		},
+		{
+			name:           "Empty security groups without ENI",
+			securityGroups: []*string{},
+			primaryENI:     nil,
+			secondaryENIs:  nil,
+			expectedError:  true,
+			errorMessage:   "security groups must be specified for launch template when ENI is not used",
+		},
+		{
+			name:           "Valid ENI with security groups",
+			securityGroups: nil,
+			primaryENI: &schemas.ENIConfig{
+				SecurityGroups: []string{"sg-12345678"},
+			},
+			secondaryENIs: nil,
+			expectedError: false,
+		},
+		{
+			name:           "ENI without security groups",
+			securityGroups: nil,
+			primaryENI: &schemas.ENIConfig{
+				SecurityGroups: []string{},
+			},
+			secondaryENIs: nil,
+			expectedError: true,
+			errorMessage:  "security groups must be specified for primary ENI",
+		},
+		{
+			name:           "Both security groups and ENI specified",
+			securityGroups: []*string{aws.String("sg-12345678")},
+			primaryENI: &schemas.ENIConfig{
+				SecurityGroups: []string{"sg-87654321"},
+			},
+			secondaryENIs: nil,
+			expectedError: true,
+			errorMessage:  "cannot use both launch template security groups and ENI security groups at the same time",
+		},
+		{
+			name:           "Secondary ENI without security groups",
+			securityGroups: nil,
+			primaryENI:     nil,
+			secondaryENIs: []*schemas.ENIConfig{
+				{
+					SecurityGroups: []string{},
+				},
+			},
+			expectedError: true,
+			errorMessage:  "security groups must be specified for secondary ENI",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &EC2Client{
+				Client:   &ec2.EC2{},
+				AsClient: &autoscaling.AutoScaling{},
+			}
+
+			err := client.ValidateSecurityGroupsConfig(tt.securityGroups, tt.primaryENI, tt.secondaryENIs)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMessage)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
