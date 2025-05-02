@@ -329,6 +329,12 @@ type RegionConfig struct {
 	// Ids of subnets
 	SubnetIDs []string `yaml:"subnet_ids"`
 
+	// Primary ENI configuration
+	PrimaryENI *ENIConfig `yaml:"primary_eni"`
+
+	// Secondary ENI configurations
+	SecondaryENIs []*ENIConfig `yaml:"secondary_enis"`
+
 	// Class load balancer name for healthcheck
 	HealthcheckLB string `yaml:"healthcheck_load_balancer"`
 
@@ -358,6 +364,24 @@ type RegionConfig struct {
 
 	// Detailed Monitoring Enabled
 	DetailedMonitoringEnabled bool `yaml:"detailed_monitoring_enabled"`
+}
+
+// ENI Configuration
+type ENIConfig struct {
+	// Device index for ENI
+	DeviceIndex int `yaml:"device_index"`
+
+	// Subnet ID for ENI
+	SubnetID string `yaml:"subnet_id"`
+
+	// Security groups for ENI
+	SecurityGroups []string `yaml:"security_groups"`
+
+	// Private IP address for ENI
+	PrivateIPAddress string `yaml:"private_ip_address"`
+
+	// Delete on termination flag
+	DeleteOnTermination bool `yaml:"delete_on_termination"`
 }
 
 // Instance capacity of autoscaling group

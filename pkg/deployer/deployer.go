@@ -611,6 +611,11 @@ func (d *Deployer) Deploy(config schemas.Config, region schemas.RegionConfig) er
 	}
 
 	// LaunchTemplate
+	// Validate security group assignment before creating launch template
+	if len(securityGroups) > 0 && (region.PrimaryENI != nil || len(region.SecondaryENIs) > 0) {
+		return fmt.Errorf("cannot use both launch template security groups and ENI security groups at the same time")
+	}
+
 	err = client.EC2Service.CreateNewLaunchTemplate(
 		launchTemplateName,
 		ami,
@@ -624,6 +629,8 @@ func (d *Deployer) Deploy(config schemas.Config, region schemas.RegionConfig) er
 		blockDevices,
 		d.Stack.InstanceMarketOptions,
 		region.DetailedMonitoringEnabled,
+		region.PrimaryENI,
+		region.SecondaryENIs,
 	)
 
 	if err != nil {

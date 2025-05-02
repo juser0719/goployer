@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"net"
 	"os"
 	"reflect"
 	"strconv"
@@ -236,6 +237,68 @@ func (b Builder) CheckValidation() error {
 			return fmt.Errorf("no %s file exists", constants.MetricYamlPath)
 		}
 	}
+
+	// Check ENI configurations
+	for _, stack := range b.Stacks {
+		for _, region := range stack.Regions {
+			// Check Primary ENI if specified
+			if region.PrimaryENI != nil {
+				if region.PrimaryENI.DeviceIndex != 0 {
+					return fmt.Errorf("primary ENI device index must be 0, got %d", region.PrimaryENI.DeviceIndex)
+				}
+				if !strings.HasPrefix(region.PrimaryENI.SubnetID, "subnet-") {
+					return fmt.Errorf("invalid subnet ID format for primary ENI: %s", region.PrimaryENI.SubnetID)
+				}
+				if len(region.PrimaryENI.SecurityGroups) == 0 {
+					return errors.New("primary ENI must have at least one security group")
+				}
+				for _, sg := range region.PrimaryENI.SecurityGroups {
+					if !strings.HasPrefix(sg, "sg-") {
+						return fmt.Errorf("invalid security group ID format for primary ENI: %s", sg)
+					}
+				}
+			}
+
+			// Check Secondary ENIs if specified
+			if len(region.SecondaryENIs) > 0 {
+				deviceIndices := make(map[int]bool)
+				for _, eni := range region.SecondaryENIs {
+					// Check device index
+					if eni.DeviceIndex <= 0 {
+						return fmt.Errorf("secondary ENI device index must be greater than 0, got %d", eni.DeviceIndex)
+					}
+					if deviceIndices[eni.DeviceIndex] {
+						return fmt.Errorf("duplicate device index found: %d", eni.DeviceIndex)
+					}
+					deviceIndices[eni.DeviceIndex] = true
+
+					// Check subnet ID
+					if !strings.HasPrefix(eni.SubnetID, "subnet-") {
+						return fmt.Errorf("invalid subnet ID format for secondary ENI: %s", eni.SubnetID)
+					}
+
+					// Check security groups
+					if len(eni.SecurityGroups) == 0 {
+						return errors.New("secondary ENI must have at least one security group")
+					}
+					for _, sg := range eni.SecurityGroups {
+						if !strings.HasPrefix(sg, "sg-") {
+							return fmt.Errorf("invalid security group ID format for secondary ENI: %s", sg)
+						}
+					}
+
+					// Check private IP address if specified
+					if eni.PrivateIPAddress != "" {
+						ip := net.ParseIP(eni.PrivateIPAddress)
+						if ip == nil {
+							return fmt.Errorf("invalid private IP address format for secondary ENI: %s", eni.PrivateIPAddress)
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// duplicated value check
 	stackMap := map[string]int{}
 	for _, stack := range b.Stacks {
