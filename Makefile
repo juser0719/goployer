@@ -115,14 +115,14 @@ build: format cross $(BUILD_DIR)/VERSION
 
 .PHONY: release-build
 release-build: format cross
+	aws s3 cp $(BUILD_DIR)/ $(S3_RELEASE_PATH)/ --recursive --include "$(PROJECT)-*" --acl public-read
+	aws s3 cp $(S3_RELEASE_PATH)/ $(S3_RELEASE_LATEST)/ --recursive --acl public-read
 #	docker build \
 #		-f deploy/Dockerfile \
 #		--target release \
 #		-t gcr.io/$(GCP_PROJECT)/goployer:edge \
 #		-t gcr.io/$(GCP_PROJECT)/goployer:$(COMMIT) \
 #		.
-	aws s3 cp $(BUILD_DIR)/$(PROJECT)-* $(S3_RELEASE_PATH)/
-	aws s3 cp -r $(S3_RELEASE_PATH)/* $(S3_RELEASE_LATEST)
 
 .PHONY: upload-edge-only
 upload-edge-only: version
