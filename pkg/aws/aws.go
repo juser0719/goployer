@@ -74,7 +74,7 @@ func BootstrapServices(region string, assumeRole string) Client {
 		creds = stscreds.NewCredentials(awsSession, assumeRole)
 	}
 
-	//Get all clients
+	// Get all clients
 	client := Client{
 		Region:            region,
 		EC2Service:        NewEC2Client(awsSession, region, creds),
@@ -95,7 +95,7 @@ func BootstrapMetricService(region string, assumeRole string) MetricClient {
 		creds = stscreds.NewCredentials(awsSession, assumeRole)
 	}
 
-	//Get all clients
+	// Get all clients
 	client := MetricClient{
 		Region:            region,
 		DynamoDBService:   NewDynamoDBClient(awsSession, region, nil),
@@ -113,7 +113,7 @@ func BootstrapManifestService(region string, assumeRole string) ManifestClient {
 		creds = stscreds.NewCredentials(awsSession, assumeRole)
 	}
 
-	//Get all clients
+	// Get all clients
 	client := ManifestClient{
 		Region:    region,
 		S3Service: NewS3Client(awsSession, region, creds),

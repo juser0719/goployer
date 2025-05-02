@@ -4,6 +4,9 @@ GREEN='\033[0;32m'
 RESET='\033[0m'
 
 echo "Running linters..."
+
+go mod vendor
+
 scripts=(
     "hack/boilerplate.sh"
     "hack/gofmt.sh"

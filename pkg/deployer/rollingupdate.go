@@ -70,7 +70,7 @@ func (r *RollingUpdate) GetDeployer() *Deployer {
 
 // CheckPreviousResources checks if there is any previous version of autoscaling group
 func (r *RollingUpdate) CheckPreviousResources(config schemas.Config) error {
-	err := r.Deployer.CheckPrevious(config)
+	err := r.CheckPrevious(config)
 	if err != nil {
 		return err
 	}
@@ -134,10 +134,7 @@ func (r *RollingUpdate) FinishAdditionalWork(config schemas.Config) error {
 		return nil
 	}
 
-	skipped := false
-	if len(config.Region) > 0 && !CheckRegionExist(config.Region, r.Stack.Regions) {
-		skipped = true
-	}
+	skipped := len(config.Region) > 0 && !CheckRegionExist(config.Region, r.Stack.Regions)
 
 	if !skipped {
 		for _, region := range r.Stack.Regions {
@@ -204,7 +201,7 @@ func (r *RollingUpdate) GatherMetrics(config schemas.Config) error {
 		return nil
 	}
 
-	if err := r.Deployer.StartGatheringMetrics(config); err != nil {
+	if err := r.StartGatheringMetrics(config); err != nil {
 		return err
 	}
 
@@ -270,7 +267,7 @@ func (r *RollingUpdate) CompleteRollingUpdate(config schemas.Config, region sche
 	}
 	logrus.Debugf("Completing rolling update process: %s", latestASG)
 
-	asgDetail, err := r.Deployer.DescribeAutoScalingGroup(latestASG, region.Region)
+	asgDetail, err := r.DescribeAutoScalingGroup(latestASG, region.Region)
 	if err != nil {
 		return err
 	}
@@ -279,17 +276,17 @@ func (r *RollingUpdate) CompleteRollingUpdate(config schemas.Config, region sche
 		return fmt.Errorf("no autoscaling group information retrieved. Please check autoscaling group resource: %s", latestASG)
 	}
 
-	appliedCapacity, err := r.Deployer.DecideCapacity(config.ForceManifestCapacity, false, region.Region, len(r.PrevAsgs[region.Region]), r.Stack.RollingUpdateInstanceCount)
+	appliedCapacity, err := r.DecideCapacity(config.ForceManifestCapacity, false, region.Region, len(r.PrevAsgs[region.Region]), r.Stack.RollingUpdateInstanceCount)
 	if err != nil {
 		return err
 	}
 
-	targetCapacity := r.Deployer.CompareWithCurrentCapacity(config.ForceManifestCapacity, region.Region)
+	targetCapacity := r.CompareWithCurrentCapacity(config.ForceManifestCapacity, region.Region)
 
 	previousFinished := false
 	for !IsFinishedRollingUpdate(appliedCapacity, targetCapacity) || !previousFinished {
 		if !previousFinished {
-			previousFinished, err = r.Deployer.ReducePreviousAutoScalingGroupCapacity(region.Region, r.Stack.RollingUpdateInstanceCount)
+			previousFinished, err = r.ReducePreviousAutoScalingGroupCapacity(region.Region, r.Stack.RollingUpdateInstanceCount)
 			if err != nil {
 				return err
 			}
@@ -300,7 +297,7 @@ func (r *RollingUpdate) CompleteRollingUpdate(config schemas.Config, region sche
 		}
 
 		r.Logger.Debugf("Rolling update of autoscaling group: min - %d, desired - %d, max - %d", appliedCapacity.Min, appliedCapacity.Desired, appliedCapacity.Max)
-		if err := r.Deployer.ResizingAutoScalingGroup(r.AsgNames[region.Region], region.Region, appliedCapacity); err != nil {
+		if err := r.ResizingAutoScalingGroup(r.AsgNames[region.Region], region.Region, appliedCapacity); err != nil {
 			return err
 		}
 
