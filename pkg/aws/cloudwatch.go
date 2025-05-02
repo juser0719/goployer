@@ -57,7 +57,7 @@ func (c CloudWatchClient) CreateScalingAlarms(asgName string, alarms []schemas.A
 		return nil
 	}
 
-	//Create cloudwatch alarms
+	// Create cloudwatch alarms
 	for _, alarm := range alarms {
 		arns := []string{}
 		for _, action := range alarm.AlarmActions {

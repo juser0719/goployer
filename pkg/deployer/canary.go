@@ -74,7 +74,7 @@ func (c *Canary) GetDeployer() *Deployer {
 
 // CheckPreviousResources checks if there is any previous version of autoscaling group
 func (c *Canary) CheckPreviousResources(config schemas.Config) error {
-	err := c.Deployer.CheckPrevious(config)
+	err := c.CheckPrevious(config)
 	if err != nil {
 		return err
 	}
@@ -89,11 +89,11 @@ func (c *Canary) Deploy(config schemas.Config) error {
 	}
 	c.Logger.Infof("Deploy Mode is %s", c.Mode)
 
-	//Get LocalFileProvider
+	// Get LocalFileProvider
 	c.LocalProvider = builder.SetUserdataProvider(c.Stack.Userdata, c.AwsConfig.Userdata)
 	for i, region := range c.Stack.Regions {
-		//Region check
-		//If region id is passed from command line, then deployer will deploy in that region only.
+		// Region check
+		// If region id is passed from command line, then deployer will deploy in that region only.
 		if config.Region != "" && config.Region != region.Region {
 			c.Logger.Debugf("This region is skipped by user : %s", region.Region)
 			continue
@@ -187,10 +187,7 @@ func (c *Canary) FinishAdditionalWork(config schemas.Config) error {
 		return nil
 	}
 
-	skipped := false
-	if len(config.Region) > 0 && !CheckRegionExist(config.Region, c.Stack.Regions) {
-		skipped = true
-	}
+	skipped := len(config.Region) > 0 && !CheckRegionExist(config.Region, c.Stack.Regions)
 
 	if !skipped {
 		// attach to the previous target group
@@ -254,11 +251,11 @@ func (c *Canary) CleanPreviousVersion(config schemas.Config) error {
 		}
 		// TODO: Need to uncomment if goployer supports gradual canary deployment
 		////Apply AutoScaling Policies
-		//for _, region := range c.Stack.Regions {
-		//	if err := c.ReduceOriginalAutoscalingGroupCount(region); err != nil {
-		//		return err
-		//	}
-		//}
+		/*for _, region := range c.Stack.Regions {
+			if err := c.ReduceOriginalAutoscalingGroupCount(region); err != nil {
+				return err
+			}
+		}*/
 	}
 	c.StepStatus[constants.StepCleanPreviousVersion] = true
 	return nil
@@ -284,7 +281,7 @@ func (c *Canary) GatherMetrics(config schemas.Config) error {
 		return nil
 	}
 
-	if err := c.Deployer.StartGatheringMetrics(config); err != nil {
+	if err := c.StartGatheringMetrics(config); err != nil {
 		return err
 	}
 
@@ -303,7 +300,7 @@ func (c *Canary) RunAPITest(config schemas.Config) error {
 		return nil
 	}
 
-	err := c.Deployer.RunAPITest(config)
+	err := c.RunAPITest(config)
 	if err != nil {
 		return err
 	}
@@ -314,7 +311,7 @@ func (c *Canary) RunAPITest(config schemas.Config) error {
 
 // ValidateCanaryDeployment validates if configuration is right for canary deployment
 func (c *Canary) ValidateCanaryDeployment(config schemas.Config, region string) error {
-	if c.Deployer.DeploymentFlag[region] != constants.CanaryDeployment && config.CompleteCanary {
+	if c.DeploymentFlag[region] != constants.CanaryDeployment && config.CompleteCanary {
 		return errors.New("you cannot complete canary deployment before start canary before")
 	}
 
@@ -402,9 +399,9 @@ func (c *Canary) SelectTargetGroupForCopy(region schemas.RegionConfig, canaryVer
 
 // AttachToOriginalTargetGroups attaches the new autoscaling group to original target groups
 func (c *Canary) AttachToOriginalTargetGroups(config schemas.Config) error {
-	//Apply AutoScaling Policies
+	// Apply AutoScaling Policies
 	for _, region := range c.Stack.Regions {
-		//If region id is passed from command line, then deployer will deploy in that region only.
+		// If region id is passed from command line, then deployer will deploy in that region only.
 		if config.Region != "" && config.Region != region.Region {
 			c.Logger.Debug("This region is skipped by user : " + region.Region)
 			continue
@@ -590,7 +587,7 @@ func (c *Canary) GetEC2CanarySecurityGroup(tg *elbv2.TargetGroup, region schemas
 		if err != nil {
 			return err
 		}
-		c.Deployer.SecurityGroup[region.Region] = groupID
+		c.SecurityGroup[region.Region] = groupID
 		c.Logger.Debugf("Found existing security group id: %s", *groupID)
 
 		return nil
@@ -624,7 +621,7 @@ func (c *Canary) GetEC2CanarySecurityGroup(tg *elbv2.TargetGroup, region schemas
 		c.Logger.Warn(err.Error())
 	}
 
-	c.Deployer.SecurityGroup[region.Region] = groupID
+	c.SecurityGroup[region.Region] = groupID
 	c.Logger.Debugf("Security group for this canary deployment: %s", *groupID)
 
 	return nil
@@ -859,7 +856,7 @@ func (c *Canary) DeleteLBSecurityGroup(region schemas.RegionConfig) error {
 
 // DeleteEC2SecurityGroup deletes EC2 security group for canary
 func (c *Canary) DeleteEC2SecurityGroup(region schemas.RegionConfig) error {
-	if c.Deployer.SecurityGroup[region.Region] == nil {
+	if c.SecurityGroup[region.Region] == nil {
 		c.Logger.Debugf("No EC2 security group to delete")
 		return nil
 	}
@@ -869,19 +866,19 @@ func (c *Canary) DeleteEC2SecurityGroup(region schemas.RegionConfig) error {
 		return err
 	}
 
-	err = client.EC2Service.DeleteSecurityGroup(*c.Deployer.SecurityGroup[region.Region])
+	err = client.EC2Service.DeleteSecurityGroup(*c.SecurityGroup[region.Region])
 	if err != nil {
 		return err
 	}
 
-	c.Logger.Debugf("Delete canary EC2 security group: %s", *c.Deployer.SecurityGroup[region.Region])
+	c.Logger.Debugf("Delete canary EC2 security group: %s", *c.SecurityGroup[region.Region])
 
 	return nil
 }
 
 // DeleteEC2IngressRules deletes ingress rules for EC2
 func (c *Canary) DeleteEC2IngressRules(region schemas.RegionConfig) error {
-	if c.Deployer.SecurityGroup[region.Region] == nil {
+	if c.SecurityGroup[region.Region] == nil {
 		c.Logger.Debugf("No EC2 security group to delete")
 		return nil
 	}
@@ -892,7 +889,7 @@ func (c *Canary) DeleteEC2IngressRules(region schemas.RegionConfig) error {
 	}
 
 	// inbound
-	sgDetails, err := client.EC2Service.GetSecurityGroupDetails([]*string{c.Deployer.SecurityGroup[region.Region]})
+	sgDetails, err := client.EC2Service.GetSecurityGroupDetails([]*string{c.SecurityGroup[region.Region]})
 	if err != nil {
 		return err
 	}
@@ -912,7 +909,7 @@ func (c *Canary) DeleteEC2IngressRules(region schemas.RegionConfig) error {
 		}
 	}
 
-	c.Logger.Debugf("Detach lb security group from EC2 security group: %s", *c.Deployer.SecurityGroup[region.Region])
+	c.Logger.Debugf("Detach lb security group from EC2 security group: %s", *c.SecurityGroup[region.Region])
 
 	return nil
 }
@@ -1046,7 +1043,7 @@ func (c *Canary) RunCanaryDeployment(config schemas.Config, region schemas.Regio
 
 // CompleteCanaryDeployment completes canary deployment
 func (c *Canary) CompleteCanaryDeployment(config schemas.Config, region schemas.RegionConfig, latestASG string) error {
-	asgDetail, err := c.Deployer.DescribeAutoScalingGroup(latestASG, region.Region)
+	asgDetail, err := c.DescribeAutoScalingGroup(latestASG, region.Region)
 	if err != nil {
 		return err
 	}
@@ -1056,14 +1053,14 @@ func (c *Canary) CompleteCanaryDeployment(config schemas.Config, region schemas.
 	}
 
 	instanceIds := extractInstanceIds(asgDetail)
-	instancesDetail, err := c.Deployer.DescribeInstances(instanceIds, region)
+	instancesDetail, err := c.DescribeInstances(instanceIds, region)
 	if err != nil {
 		return err
 	}
 
 	nis := getNetworkInterfaces(instancesDetail)
 
-	if err := c.DetachSecurityGroup(nis, region, *c.Deployer.SecurityGroup[region.Region]); err != nil {
+	if err := c.DetachSecurityGroup(nis, region, *c.SecurityGroup[region.Region]); err != nil {
 		return err
 	}
 
@@ -1075,23 +1072,23 @@ func (c *Canary) CompleteCanaryDeployment(config schemas.Config, region schemas.
 		return err
 	}
 
-	if err := c.ChangeLaunchTemplateVersion(latestASG, asgDetail.LaunchTemplate, region, *c.Deployer.SecurityGroup[region.Region]); err != nil {
+	if err := c.ChangeLaunchTemplateVersion(latestASG, asgDetail.LaunchTemplate, region, *c.SecurityGroup[region.Region]); err != nil {
 		return err
 	}
 
-	appliedCapacity, err := c.Deployer.DecideCapacity(config.ForceManifestCapacity, config.CompleteCanary, region.Region, len(c.PrevAsgs[region.Region]), c.Stack.RollingUpdateInstanceCount)
+	appliedCapacity, err := c.DecideCapacity(config.ForceManifestCapacity, config.CompleteCanary, region.Region, len(c.PrevAsgs[region.Region]), c.Stack.RollingUpdateInstanceCount)
 	if err != nil {
 		return err
 	}
 
 	c.Logger.Debugf("Resizing latest autoscaling group: min - %d, desired - %d, max - %d", appliedCapacity.Min, appliedCapacity.Desired, appliedCapacity.Max)
-	if err := c.Deployer.ResizingAutoScalingGroup(latestASG, region.Region, appliedCapacity); err != nil {
+	if err := c.ResizingAutoScalingGroup(latestASG, region.Region, appliedCapacity); err != nil {
 		return err
 	}
 
 	// settings for health checking
 	c.Stack.Capacity.Desired = appliedCapacity.Desired
-	c.Deployer.AsgNames[region.Region] = latestASG
+	c.AsgNames[region.Region] = latestASG
 
 	return nil
 }

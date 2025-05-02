@@ -272,7 +272,7 @@ func (r Runner) Deploy() error {
 		return err
 	}
 
-	//Send Beginning Message
+	// Send Beginning Message
 	r.Logger.Infof("Beginning deployment: %s", r.Builder.AwsConfig.Name)
 
 	if err := r.Builder.PrintSummary(out, r.Builder.Config.Stack, r.Builder.Config.Region); err != nil {
@@ -305,7 +305,7 @@ func (r Runner) Deploy() error {
 	r.Logger.Debugf("create wait group for deployer setup")
 	wg := sync.WaitGroup{}
 
-	//Prepare deployers
+	// Prepare deployers
 	r.Logger.Debug("create deployers for stacks")
 	var deployers []deployer.DeployManager
 	for _, stack := range r.Builder.Stacks {
@@ -377,7 +377,7 @@ func (r Runner) Deploy() error {
 	}
 	wg.Wait()
 
-	//CleanChecking
+	// CleanChecking
 	for _, d := range deployers {
 		wg.Add(1)
 		go func(deployer deployer.DeployManager) {
@@ -429,7 +429,7 @@ func (r Runner) Delete() error {
 		return err
 	}
 
-	//Send Beginning Message
+	// Send Beginning Message
 	r.Logger.Info("Beginning delete process: ", r.Builder.AwsConfig.Name)
 	r.Builder.Config.SlackOff = true
 
@@ -441,7 +441,7 @@ func (r Runner) Delete() error {
 
 	wg := sync.WaitGroup{}
 
-	//Prepare deployers
+	// Prepare deployers
 	r.Logger.Debug("create deployers for stacks to delete")
 	var deployers []deployer.DeployManager
 	for _, stack := range r.Builder.Stacks {

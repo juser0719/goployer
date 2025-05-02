@@ -20,7 +20,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -222,7 +221,7 @@ func generateData(path, base64String, appName string) (string, error) {
 }
 
 func generateFile(filePath string, writeData string) error {
-	if err := ioutil.WriteFile(filePath, []byte(writeData), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(writeData), 0644); err != nil {
 		return err
 	}
 

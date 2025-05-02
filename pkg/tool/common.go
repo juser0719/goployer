@@ -65,7 +65,7 @@ func CheckTimeout(start int64, timeout time.Duration) (bool, error) {
 	now := time.Now().Unix()
 	timeoutSec := int64(timeout / time.Second)
 
-	//Over timeout
+	// Over timeout
 	if (now - start) > timeoutSec {
 		return true, nil
 	}

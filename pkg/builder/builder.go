@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"strconv"
@@ -80,7 +79,7 @@ func (l LocalProvider) Provide() (string, error) {
 		return constants.EmptyString, fmt.Errorf("file does not exist in %s", l.Path)
 	}
 
-	userdata, err := ioutil.ReadFile(l.Path)
+	userdata, err := os.ReadFile(l.Path)
 	if err != nil {
 		return constants.EmptyString, errors.New("error reading userdata file")
 	}
@@ -255,7 +254,7 @@ func (b Builder) CheckValidation() error {
 	}
 
 	// check validations in API test templates
-	if b.APITestTemplates != nil && len(b.APITestTemplates) > 0 {
+	if len(b.APITestTemplates) > 0 {
 		for _, att := range b.APITestTemplates {
 			if len(att.Name) == 0 {
 				return errors.New("name of API test is required")
@@ -557,7 +556,7 @@ func ParsingManifestFile(manifest string) (schemas.AWSConfig, []schemas.Stack, [
 	var yamlFile []byte
 	var err error
 
-	yamlFile, err = ioutil.ReadFile(manifest)
+	yamlFile, err = os.ReadFile(manifest)
 	if err != nil {
 		Logger.Errorf("Error reading YAML file: %s\n", err)
 		return schemas.AWSConfig{}, nil, nil
@@ -621,7 +620,7 @@ func argumentParsing() (schemas.Config, error) {
 
 // Set Userdata provider
 func SetUserdataProvider(userdata schemas.Userdata, defaultUserdata schemas.Userdata) UserdataProvider {
-	//Set default if no userdata exists in the stack
+	// Set default if no userdata exists in the stack
 	if userdata.Type == "" {
 		userdata.Type = defaultUserdata.Type
 	}

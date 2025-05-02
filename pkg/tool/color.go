@@ -113,8 +113,9 @@ func DecorateAttr(attrString, message string) string {
 
 // GetRandomRGBColor creates random RGB color
 func GetRandomRGBColor() string {
-	rand.Seed(time.Now().UnixNano())
-	return "#" + getHex(rand.Intn(255)) + getHex(rand.Intn(255)) + getHex(rand.Intn(255))
+	source := rand.NewSource(time.Now().UnixNano()) // 새로운 랜덤 소스 생성
+	r := rand.New(source)                           // 새로운 랜덤 생성기
+	return "#" + getHex(r.Intn(255)) + getHex(r.Intn(255)) + getHex(r.Intn(255))
 }
 
 // getHex Converts a decimal number to hex representations

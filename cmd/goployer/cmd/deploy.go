@@ -36,13 +36,13 @@ func NewDeployCommand() *cobra.Command {
 // funcDeploy run deployment
 func funcDeploy(ctx context.Context, _ io.Writer, mode string) error {
 	return runWithoutExecutor(ctx, func() error {
-		//Create new builder
+		// Create new builder
 		builderSt, err := runner.SetupBuilder(mode)
 		if err != nil {
 			return err
 		}
 
-		//Start runner
+		// Start runner
 		if err := runner.Start(builderSt, mode); err != nil {
 			return err
 		}

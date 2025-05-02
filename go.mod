@@ -18,6 +18,7 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
+	github.com/stretchr/testify v1.4.0
 	github.com/tsenart/vegeta v12.7.0+incompatible
 	gopkg.in/ini.v1 v1.57.0
 	gopkg.in/yaml.v2 v2.3.0
@@ -25,6 +26,7 @@ require (
 
 require (
 	github.com/bmizerany/perks v0.0.0-20220928223023-dcf613bf3504 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-gk v0.0.0-20200319235926-a69029f61654 // indirect
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
@@ -44,6 +46,7 @@ require (
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/pelletier/go-toml v1.8.0 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/spf13/afero v1.3.2 // indirect
 	github.com/spf13/cast v1.3.1 // indirect

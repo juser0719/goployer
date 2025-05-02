@@ -60,7 +60,7 @@ func (b *BlueGreen) GetDeployer() *Deployer {
 
 // CheckPreviousResources checks if there is any previous version of autoscaling group
 func (b *BlueGreen) CheckPreviousResources(config schemas.Config) error {
-	err := b.Deployer.CheckPrevious(config)
+	err := b.CheckPrevious(config)
 	if err != nil {
 		return err
 	}
@@ -76,12 +76,12 @@ func (b *BlueGreen) Deploy(config schemas.Config) error {
 
 	b.Logger.Info("Deploy Mode is " + b.Mode)
 
-	//Get LocalFileProvider
+	// Get LocalFileProvider
 	b.LocalProvider = builder.SetUserdataProvider(b.Stack.Userdata, b.AwsConfig.Userdata)
 
 	for _, region := range b.Stack.Regions {
-		//Region check
-		//If region id is passed from command line, then deployer will deploy in that region only.
+		// Region check
+		// If region id is passed from command line, then deployer will deploy in that region only.
 		if config.Region != "" && config.Region != region.Region {
 			b.Logger.Debug("This region is skipped by user : " + region.Region)
 			continue
@@ -129,10 +129,7 @@ func (b *BlueGreen) FinishAdditionalWork(config schemas.Config) error {
 		return nil
 	}
 
-	skipped := false
-	if len(config.Region) > 0 && !CheckRegionExist(config.Region, b.Stack.Regions) {
-		skipped = true
-	}
+	skipped := len(config.Region) > 0 && !CheckRegionExist(config.Region, b.Stack.Regions)
 
 	if !skipped {
 		if err := b.DoCommonAdditionalWork(config); err != nil {
@@ -168,7 +165,7 @@ func (b *BlueGreen) CleanPreviousVersion(config schemas.Config) error {
 	}
 
 	if !skipped {
-		if err := b.Deployer.CleanPreviousAutoScalingGroup(config); err != nil {
+		if err := b.CleanPreviousAutoScalingGroup(config); err != nil {
 			return err
 		}
 	}
@@ -218,7 +215,7 @@ func (b *BlueGreen) GatherMetrics(config schemas.Config) error {
 		}
 	}
 
-	if err := b.Deployer.StartGatheringMetrics(config); err != nil {
+	if err := b.StartGatheringMetrics(config); err != nil {
 		return err
 	}
 

@@ -17,7 +17,7 @@ limitations under the license.
 package builder
 
 import (
-	"io/ioutil"
+	"os"
 
 	Logger "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -36,7 +36,7 @@ func ParseMetricConfig(disabledMetrics bool, filename string) (schemas.MetricCon
 	}
 
 	metricConfig := schemas.MetricConfig{Enabled: true}
-	yamlFile, err := ioutil.ReadFile(filename)
+	yamlFile, err := os.ReadFile(filename)
 	if err != nil {
 		Logger.Errorf("Error reading YAML file: %s\n", err)
 		return metricConfig, err

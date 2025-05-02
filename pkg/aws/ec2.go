@@ -1314,7 +1314,6 @@ func (e EC2Client) DescribeAMIArchitecture(amiID string) (string, error) {
 }
 
 func (e EC2Client) getKmsKeyIdByAlias(alias string) (string, error) {
-
 	if len(alias) == 0 {
 		Logger.Info("Volume Encrypt default KMS Key(aws/ebs)")
 		alias = "alias/aws/ebs"

@@ -527,7 +527,7 @@ func reflectValueOf(values []interface{}) []reflect.Value {
 func SetCommandFlags(cmd *cobra.Command) {
 	var flagsForCommand []*Flag
 
-	FlagRegistries := append(CommonFlagRegistry, FlagRegistry[flagKey[cmd.Use]]...)
+	var FlagRegistries = append(CommonFlagRegistry, FlagRegistry[flagKey[cmd.Use]]...)
 	for i := range FlagRegistries {
 		fl := &FlagRegistries[i]
 		cmd.PersistentFlags().AddFlag(fl.flag())

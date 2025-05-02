@@ -23,7 +23,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -102,7 +101,7 @@ func generateSchemas(root string, dryRun bool, inputFile, outputFile string) err
 	var current []byte
 	if _, err := os.Stat(output); err == nil {
 		var err error
-		current, err = ioutil.ReadFile(output)
+		current, err = os.ReadFile(output)
 		if err != nil {
 			return fmt.Errorf("unable to read existing config schema: %w", err)
 		}
@@ -110,10 +109,10 @@ func generateSchemas(root string, dryRun bool, inputFile, outputFile string) err
 		return fmt.Errorf("unable to check that file exists %q: %w", output, err)
 	}
 
-	current = bytes.Replace(current, []byte("\r\n"), []byte("\n"), -1)
+	current = bytes.ReplaceAll(current, []byte("\r\n"), []byte("\n"))
 
 	if !dryRun {
-		if err := ioutil.WriteFile(output, buf, os.ModePerm); err != nil {
+		if err := os.WriteFile(output, buf, os.ModePerm); err != nil {
 			return fmt.Errorf("unable to write schema %q: %w", output, err)
 		}
 	}
@@ -352,7 +351,7 @@ func (g Generator) ParseDefinition(name string, t ast.Expr, comment string) *Def
 		}
 	}
 
-	description := strings.TrimSpace(strings.Replace(comment, "\n", " ", -1))
+	description := strings.TrimSpace(strings.ReplaceAll(comment, "\n", " "))
 
 	// Extract default value
 	if m := regexpDefaults.FindStringSubmatch(description); m != nil {
@@ -403,7 +402,7 @@ func setTypeOrRef(def *Definition, typeName string) {
 }
 
 func yamlFieldName(field *ast.Field) string {
-	tag := strings.Replace(field.Tag.Value, "`", "", -1)
+	tag := strings.ReplaceAll(field.Tag.Value, "`", "")
 	tags := reflect.StructTag(tag)
 	yamlTag := tags.Get("yaml")
 

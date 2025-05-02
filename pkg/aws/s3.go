@@ -17,7 +17,7 @@ limitations under the license.
 package aws
 
 import (
-	"io/ioutil"
+	"io"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/client"
@@ -53,7 +53,7 @@ func (s S3Client) GetManifest(bucket, key string) ([]byte, error) {
 		return nil, err
 	}
 
-	body, err := ioutil.ReadAll(result.Body)
+	body, err := io.ReadAll(result.Body)
 	if err != nil {
 		return nil, err
 	}

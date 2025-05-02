@@ -1,17 +1,17 @@
 /*
-Copyright 2020 The Goployer Authors
+copyright 2020 the Goployer authors
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at:
+licensed under the apache license, version 2.0 (the "license");
+you may not use this file except in compliance with the license.
+you may obtain a copy of the license at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/license-2.0
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" basis,
+unless required by applicable law or agreed to in writing, software
+distributed under the license is distributed on an "as is" basis,
 without warranties or conditions of any kind, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+see the license for the specific language governing permissions and
+limitations under the license.
 */
 
 package deployer
@@ -466,11 +466,11 @@ func (d *Deployer) CheckPrevious(config schemas.Config) error {
 		var prevVersions []int
 		deploymentFlag := constants.EmptyString
 
-		//Setup frigga with prefix
+		// Setup frigga with prefix
 		frigga.Prefix = tool.BuildPrefixName(d.AwsConfig.Name, d.Stack.Env, region.Region)
 		d.Logger.Debugf("Prefix name: %s", frigga.Prefix)
 
-		//select client
+		// select client
 		client, err := selectClientFromList(d.AWSClients, region.Region)
 		if err != nil {
 			return err
@@ -483,7 +483,7 @@ func (d *Deployer) CheckPrevious(config schemas.Config) error {
 		}
 		d.Logger.Debugf("Previous asg count: %d", len(asgGroups))
 
-		//Get All Previous Autoscaling Groups and versions
+		// Get All Previous Autoscaling Groups and versions
 		var prevInstanceCount schemas.Capacity
 		var latestAsg *autoscaling.Group
 		for _, asgGroup := range asgGroups {
@@ -551,20 +551,20 @@ func (d *Deployer) Deploy(config schemas.Config, region schemas.RegionConfig) er
 	// Make Frigga
 	frigga := tool.Frigga{}
 
-	//select client
+	// select client
 	client, err := selectClientFromList(d.AWSClients, region.Region)
 	if err != nil {
 		return err
 	}
 
-	//Setup frigga with prefix
+	// Setup frigga with prefix
 	frigga.Prefix = tool.BuildPrefixName(d.AwsConfig.Name, d.Stack.Env, region.Region)
 
 	// Get Current Version
 	curVersion := getCurrentVersion(d.PrevVersions[region.Region])
 	d.Logger.Infof("Current Version: %d", curVersion)
 
-	//Get AMI
+	// Get AMI
 	var ami string
 	if len(config.Ami) > 0 {
 		ami = config.Ami
@@ -584,7 +584,7 @@ func (d *Deployer) Deploy(config schemas.Config, region schemas.RegionConfig) er
 		return err
 	}
 
-	//Stack check
+	// Stack check
 	securityGroups, err := client.EC2Service.GetSecurityGroupList(region.VPC, region.SecurityGroups)
 	if err != nil {
 		return err
@@ -841,7 +841,7 @@ func (d *Deployer) GenerateTags(asgName, stack string, extraTags, ansibleExtraVa
 		}
 	}
 
-	//Add extraTags
+	// Add extraTags
 	if len(extraTags) > 0 {
 		if strings.Contains(extraTags, ",") {
 			ts := strings.Split(extraTags, ",")
@@ -922,7 +922,7 @@ func (d *Deployer) HealthChecking(config schemas.Config) (bool, error) {
 	}
 	d.Logger.Debugf("Health checking for stack starts : %s", stackName)
 
-	//Valid Count
+	// Valid Count
 	validCount := 1
 	if config.Region == "" {
 		validCount = len(d.Stack.Regions)
@@ -935,15 +935,15 @@ func (d *Deployer) HealthChecking(config schemas.Config) (bool, error) {
 	}
 
 	for _, region := range d.Stack.Regions {
-		//Region check
-		//If region id is passed from command line, then deployer will deploy in that region only.
+		// Region check
+		// If region id is passed from command line, then deployer will deploy in that region only.
 		if config.Region != "" && config.Region != region.Region {
 			d.Logger.Debugf("This region is skipped by user: %s", region.Region)
 			continue
 		}
 		d.Logger.Debugf("Health checking for region starts: %s", region.Region)
 
-		//select client
+		// select client
 		client, err := selectClientFromList(d.AWSClients, region.Region)
 		if err != nil {
 			return false, err
@@ -987,9 +987,9 @@ func (d *Deployer) HealthChecking(config schemas.Config) (bool, error) {
 
 // DoCommonAdditionalWork does the common work regardless of replacement type
 func (d *Deployer) DoCommonAdditionalWork(config schemas.Config) error {
-	//Apply AutoScaling Policies
+	// Apply AutoScaling Policies
 	for _, region := range d.Stack.Regions {
-		//If region id is passed from command line, then deployer will deploy in that region only.
+		// If region id is passed from command line, then deployer will deploy in that region only.
 		if config.Region != "" && config.Region != region.Region {
 			d.Logger.Debug("This region is skipped by user : " + region.Region)
 			continue
@@ -997,7 +997,7 @@ func (d *Deployer) DoCommonAdditionalWork(config schemas.Config) error {
 
 		d.Logger.Info("Attaching autoscaling policies : " + region.Region)
 
-		//select client
+		// select client
 		client, err := selectClientFromList(d.AWSClients, region.Region)
 		if err != nil {
 			return err
@@ -1006,7 +1006,7 @@ func (d *Deployer) DoCommonAdditionalWork(config schemas.Config) error {
 		if len(d.Stack.Autoscaling) == 0 {
 			d.Logger.Debug("no scaling policy exists")
 		} else {
-			//putting autoscaling group policies
+			// putting autoscaling group policies
 			policyArns := map[string]string{}
 			for _, policy := range d.Stack.Autoscaling {
 				policyArn, err := client.EC2Service.CreateScalingPolicy(policy, d.AsgNames[region.Region])
@@ -1068,7 +1068,7 @@ func (d *Deployer) TriggerLifecycleCallbacks(config schemas.Config) error {
 				continue
 			}
 
-			//select client
+			// select client
 			client, err := selectClientFromList(d.AWSClients, region.Region)
 			if err != nil {
 				return err
@@ -1097,7 +1097,7 @@ func (d *Deployer) CleanPreviousAutoScalingGroup(config schemas.Config) error {
 
 		d.Logger.Infof("[%s]The number of previous versions to delete is %d", region.Region, len(d.PrevAsgs[region.Region]))
 
-		//select client
+		// select client
 		client, err := selectClientFromList(d.AWSClients, region.Region)
 		if err != nil {
 			return err
@@ -1194,7 +1194,7 @@ func (d *Deployer) CleanChecking(config schemas.Config) (bool, error) {
 	}
 	d.Logger.Info(fmt.Sprintf("Termination Checking for %s starts...", stackName))
 
-	//Valid Count
+	// Valid Count
 	validCount := 1
 	if len(config.Region) == 0 {
 		validCount = len(d.Stack.Regions)
@@ -1209,7 +1209,7 @@ func (d *Deployer) CleanChecking(config schemas.Config) (bool, error) {
 		}
 		d.Logger.Infof("Checking Termination stack for region starts : %s", region.Region)
 
-		//select client
+		// select client
 		client, err := selectClientFromList(d.AWSClients, region.Region)
 		if err != nil {
 			return false, err
@@ -1279,7 +1279,7 @@ func (d *Deployer) StartGatheringMetrics(config schemas.Config) error {
 
 		d.Logger.Infof("[%s]The number of previous autoscaling groups for gathering metrics is %d", region.Region, len(d.PrevAsgs[region.Region]))
 
-		//select client
+		// select client
 		client, err := selectClientFromList(d.AWSClients, region.Region)
 		if err != nil {
 			return err
@@ -1500,7 +1500,7 @@ func checkSpotInstanceOption(overRideSpotInstanceType string, instanceTypeList [
 			armTypeCount++
 		}
 	}
-	if !(spotInstanceTypeCount == armTypeCount || armTypeCount == 0) {
+	if spotInstanceTypeCount != armTypeCount && armTypeCount != 0 {
 		return errors.New("you can only use same type of spot instance type(arm64 and intel_x86 type)")
 	}
 	if ((spotInstanceTypeCount == armTypeCount) && !strings.Contains(architecture, "arm64")) || (armTypeCount == 0 && strings.Contains(architecture, "arm64")) {
