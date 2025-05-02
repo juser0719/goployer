@@ -1,13 +1,20 @@
 # This workflow will build a golang project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
 
-name: Lint and Test Code
+name: Build and Deploy to S3
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    tags:
+      - "*.*.*"
+
+env:
+  AWS_DEFAULT_REGION: ap-northeast-2
+
+permissions:
+  packages: write
+  contents: read
+  id-token: write
 
 jobs:
   build:
@@ -35,11 +42,11 @@ jobs:
           go mod tidy
           go mod vendor
 
-      - name: formatting Code
-        run: make format
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/gitaction
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
 
-      - name: lint Code
-        run: make linters
-
-      - name: Test Code
-        run: make test
+      - name: Build Goployer binary and Upload to S3
+        run: make release-build
