@@ -115,12 +115,12 @@ build: format cross $(BUILD_DIR)/VERSION
 
 .PHONY: release-build
 release-build: format cross
-	docker build \
-		-f deploy/goployer/Dockerfile \
-		--target release \
-		-t gcr.io/$(GCP_PROJECT)/goployer:edge \
-		-t gcr.io/$(GCP_PROJECT)/goployer:$(COMMIT) \
-		.
+#	docker build \
+#		-f deploy/Dockerfile \
+#		--target release \
+#		-t gcr.io/$(GCP_PROJECT)/goployer:edge \
+#		-t gcr.io/$(GCP_PROJECT)/goployer:$(COMMIT) \
+#		.
 	aws s3 cp $(BUILD_DIR)/$(PROJECT)-* $(S3_RELEASE_PATH)/
 	aws s3 cp -r $(S3_RELEASE_PATH)/* $(S3_RELEASE_LATEST)
 
