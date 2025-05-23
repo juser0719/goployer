@@ -358,7 +358,7 @@ func (e EC2Client) ValidateSecurityGroupsConfig(securityGroups []*string, primar
 }
 
 // CreateNewLaunchTemplate creates a new launch template
-func (e EC2Client) CreateNewLaunchTemplate(name, ami, instanceType, keyName, iamProfileName, userdata string, ebsOptimized, mixedInstancePolicyEnabled bool, securityGroups []*string, blockDevices []*ec2.LaunchTemplateBlockDeviceMappingRequest, instanceMarketOptions *schemas.InstanceMarketOptions, detailedMonitoringEnabled bool, primaryENI *schemas.ENIConfig, secondaryENIs []*schemas.ENIConfig) error {
+func (e EC2Client) CreateNewLaunchTemplate(name, ami, instanceType, keyName, iamProfileName, userdata string, ebsOptimized, mixedInstancePolicyEnabled bool, securityGroups []*string, blockDevices []*ec2.LaunchTemplateBlockDeviceMappingRequest, instanceMarketOptions *schemas.InstanceMarketOptions, detailedMonitoringEnabled bool, primaryENI *schemas.ENIConfig, secondaryENIs []*schemas.ENIConfig, imdsHopLimit int) error {
 	// Validate security group configuration
 	if err := e.ValidateSecurityGroupsConfig(securityGroups, primaryENI, secondaryENIs); err != nil {
 		return err
@@ -373,6 +373,16 @@ func (e EC2Client) CreateNewLaunchTemplate(name, ami, instanceType, keyName, iam
 		UserData:     aws.String(userdata),
 		EbsOptimized: aws.Bool(ebsOptimized),
 		Monitoring:   &ec2.LaunchTemplatesMonitoringRequest{Enabled: aws.Bool(detailedMonitoringEnabled)},
+		MetadataOptions: &ec2.LaunchTemplateInstanceMetadataOptionsRequest{
+			HttpTokens: aws.String("required"),
+			HttpPutResponseHopLimit: func() *int64 {
+				if imdsHopLimit > 0 {
+					return aws.Int64(int64(imdsHopLimit))
+				}
+				return aws.Int64(1)
+			}(),
+			HttpEndpoint: aws.String("enabled"),
+		},
 	}
 
 	// Only set SecurityGroupIds if it's not empty

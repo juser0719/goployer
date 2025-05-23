@@ -631,6 +631,7 @@ func (d *Deployer) Deploy(config schemas.Config, region schemas.RegionConfig) er
 		region.DetailedMonitoringEnabled,
 		region.PrimaryENI,
 		region.SecondaryENIs,
+		region.IMDSHopLimit,
 	)
 
 	if err != nil {

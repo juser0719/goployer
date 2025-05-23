@@ -364,6 +364,9 @@ type RegionConfig struct {
 
 	// Detailed Monitoring Enabled
 	DetailedMonitoringEnabled bool `yaml:"detailed_monitoring_enabled"`
+
+	// IMDS Configuration
+    IMDSHopLimit int `yaml:"imds_hop_limit,omitempty"`
 }
 
 // ENI Configuration
